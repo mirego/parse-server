@@ -11,6 +11,7 @@ import { pushStatusHandler }  from '../StatusHandler';
 
 const FEATURE_NAME = 'push';
 const UNSUPPORTED_BADGE_KEY = "unsupported";
+const PARSE_FETCH_LIMIT_SIZE = 10000;
 
 export class PushController extends AdaptableController {
 
@@ -88,19 +89,41 @@ export class PushController extends AdaptableController {
       onPushStatusSaved(pushStatus.objectId);
       return badgeUpdate();
     }).then(() => {
-      return rest.find(config, auth, '_Installation', where);
-    }).then((response) => {
-      if (!response.results) {
-        return Promise.reject({error: 'PushController: no results in query'})
+      const restOptions = {
+        "limit": PARSE_FETCH_LIMIT_SIZE,
+        "skip": 0
       }
-      pushStatus.setRunning(response.results);
-      return this.sendToAdapter(body, response.results, pushStatus, config);
+      return this.getInstallations(config, auth, where, restOptions, []);
+    }).then((responses) => {
+      const self = this;
+      const promises = [];
+      responses.forEach(function(response) {
+        if (!response.results) {
+          return Promise.reject({error: 'PushController: no results in query'})
+        }
+
+        promises.push(self.sendToAdapter(body, response.results, pushStatus, config));
+      })
+      return Promise.all(promises);
     }).then((results) => {
+      console.log("completed");
       return pushStatus.complete(results);
     }).catch((err) => {
       return pushStatus.fail(err).then(() => {
         throw err;
       });
+    });
+  }
+
+  getInstallations(config, auth, where, restOptions, results) {
+    return rest.find(config, auth, '_Installation', where, restOptions).then((response) => {
+      console.log("fetched " + response.results.length + " installations");
+      results = results.concat(response);
+      if(response.results.length === PARSE_FETCH_LIMIT_SIZE) {
+        restOptions["skip"] = PARSE_FETCH_LIMIT_SIZE + restOptions["skip"];
+        return this.getInstallations(config, auth, where, restOptions, results);
+      }
+      return Promise.resolve(results);
     });
   }
 

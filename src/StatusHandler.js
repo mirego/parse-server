@@ -111,9 +111,8 @@ export function pushStatusHandler(body, config) {
     pushHash = 'd41d8cd98f00b204e9800998ecf8427e';
   }
 
-  let setInitial = function(body = {}, where, options = {source: 'rest'}) {
+  let setInitial = function(where, options = {source: 'rest'}) {
     let now = new Date();
-    
     let payloadString = JSON.stringify(data);
     let object = {
       objectId,
@@ -177,7 +176,7 @@ export function pushStatusHandler(body, config) {
       }, update);
     }
     logger.verbose('sent push! %d success, %d failures', update.numSent, update.numFailed);
-    return handler.update({status:"running", objectId }, update);
+    return handler.update({ objectId }, update);
   }
 
   let fail = function(err) {
