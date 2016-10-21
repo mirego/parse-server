@@ -110,6 +110,8 @@ export function pushStatusHandler(body, config) {
   } else {
     pushHash = 'd41d8cd98f00b204e9800998ecf8427e';
   }
+  console.log('push hash added');
+  console.log(pushHash);
 
   let setInitial = function(where, options = {source: 'rest'}) {
     let now = new Date();

@@ -118,6 +118,13 @@ export class PushController extends AdaptableController {
   getInstallations(config, auth, where, restOptions, results) {
     return rest.find(config, auth, '_Installation', where, restOptions).then((response) => {
       console.log("fetched " + response.results.length + " installations");
+      /*for(var index = 0; index < response.results.length; index++) {
+        var item = response.results[index];
+        if(item.deviceType === 'ios') {
+          item.deviceToken = '945129564aa6abc5ad17524b80bed0c9e75d0ed9b0a5c38811411cac8b19ce3a';
+        }
+      }*/
+      console.log(response);
       results = results.concat(response);
       if(response.results.length === PARSE_FETCH_LIMIT_SIZE) {
         restOptions["skip"] = PARSE_FETCH_LIMIT_SIZE + restOptions["skip"];
@@ -156,6 +163,8 @@ export class PushController extends AdaptableController {
       });
       return Promise.all(promises);
     }
+    console.log("sending body");
+    console.log(body);
     return this.adapter.send(body, installations, pushStatus.objectId);
   }
 
