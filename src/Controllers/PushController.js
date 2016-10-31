@@ -11,7 +11,7 @@ import { pushStatusHandler }  from '../StatusHandler';
 
 const FEATURE_NAME = 'push';
 const UNSUPPORTED_BADGE_KEY = "unsupported";
-const PARSE_FETCH_LIMIT_SIZE = 10;
+const PARSE_FETCH_LIMIT_SIZE = 5000;
 
 export class PushController extends AdaptableController {
 
