@@ -11,7 +11,7 @@ import { pushStatusHandler }  from '../StatusHandler';
 
 const FEATURE_NAME = 'push';
 const UNSUPPORTED_BADGE_KEY = "unsupported";
-const PARSE_FETCH_LIMIT_SIZE = 5000;
+const PARSE_FETCH_LIMIT_SIZE = 1000;
 
 export class PushController extends AdaptableController {
 
@@ -114,11 +114,12 @@ export class PushController extends AdaptableController {
         });
       }).then(() => {
         var shouldContinue = response.results.length === PARSE_FETCH_LIMIT_SIZE;
-        response = null;
+                console.log('Process memory: ', process.memoryUsage());
         if(shouldContinue) {
           restOptions["skip"] = PARSE_FETCH_LIMIT_SIZE + restOptions["skip"];
           return this.sendPushByBatch(config, auth, where, restOptions, pushStatus, body);
         }
+
         return Promise.resolve();
       });
     });
