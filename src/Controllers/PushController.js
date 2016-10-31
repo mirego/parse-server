@@ -11,7 +11,7 @@ import { pushStatusHandler }  from '../StatusHandler';
 
 const FEATURE_NAME = 'push';
 const UNSUPPORTED_BADGE_KEY = "unsupported";
-const PARSE_FETCH_LIMIT_SIZE = 10000;
+const PARSE_FETCH_LIMIT_SIZE = 1000;
 
 export class PushController extends AdaptableController {
 
@@ -93,37 +93,33 @@ export class PushController extends AdaptableController {
         "limit": PARSE_FETCH_LIMIT_SIZE,
         "skip": 0
       }
-      return this.getInstallations(config, auth, where, restOptions, []);
-    }).then((responses) => {
-      const self = this;
-      const promises = [];
-      responses.forEach(function(response) {
+      return this.sendPushByBatch(config, auth, where, restOptions, pushStatus, body);
+    });
+  }
+
+  sendPushByBatch(config, auth, where, restOptions, pushStatus, body) {
+    return rest.find(config, auth, '_Installation', where, restOptions).then((response) => {
+      console.log("fetched " + response.results.length + " installations");
+      Promise.resolve().then(() => {
         if (!response.results) {
           return Promise.reject({error: 'PushController: no results in query'})
         }
 
-        promises.push(self.sendToAdapter(body, response.results, pushStatus, config));
-      })
-      return Promise.all(promises);
-    }).then((results) => {
-      console.log("completed");
-      return pushStatus.complete(results);
-    }).catch((err) => {
-      return pushStatus.fail(err).then(() => {
-        throw err;
+        return this.sendToAdapter(body, response.results, pushStatus, config);
+      }).then((results) => {
+        return pushStatus.complete(results);
+      }).catch((err) => {
+        return pushStatus.fail(err).then(() => {
+          throw err;
+        });
+      }).then(() => {
+        var shouldContinue = response.results.length === PARSE_FETCH_LIMIT_SIZE;
+        if(shouldContinue) {
+          restOptions["skip"] = PARSE_FETCH_LIMIT_SIZE + restOptions["skip"];
+          return this.sendPushByBatch(config, auth, where, restOptions, pushStatus, body);
+        }
+        return Promise.resolve();
       });
-    });
-  }
-
-  getInstallations(config, auth, where, restOptions, results) {
-    return rest.find(config, auth, '_Installation', where, restOptions).then((response) => {
-      console.log("fetched " + response.results.length + " installations");
-      results = results.concat(response);
-      if(response.results.length === PARSE_FETCH_LIMIT_SIZE) {
-        restOptions["skip"] = PARSE_FETCH_LIMIT_SIZE + restOptions["skip"];
-        return this.getInstallations(config, auth, where, restOptions, results);
-      }
-      return Promise.resolve(results);
     });
   }
 
