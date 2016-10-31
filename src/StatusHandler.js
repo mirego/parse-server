@@ -34,8 +34,16 @@ function statusHandler(className, database) {
     return lastPromise;
   }
 
+  function get(where) {
+    lastPromise = lastPromise.then(() => {
+      return database.find(className, {objectId: where});
+    });
+    return lastPromise;
+  }
+
   return Object.freeze({
     create,
+    get,
     update
   })
 }
@@ -123,9 +131,12 @@ export function pushStatusHandler(body, config) {
       source: options.source,
       title: options.title,
       expiry: body.expiration_time,
+      failedPerType: {},
+      sentPerType: {},
       status: "pending",
       numSent: 0,
       numOpened: 0,
+      numFailed: 0,
       pushHash,
       // lockdown!
       ACL: {}
@@ -146,37 +157,41 @@ export function pushStatusHandler(body, config) {
   }
 
   let complete = function(results) {
-    let update = {
-      status: 'succeeded',
-      updatedAt: new Date(),
-      numSent: 0,
-      numFailed: 0,
-    };
-    if (Array.isArray(results)) {
-      results = flatten(results);
-      results.reduce((memo, result) => {
-        // Cannot handle that
-        if (!result || !result.device || !result.device.deviceType) {
+    return handler.get(objectId).then((object) => {
+      let update = {
+        status: 'succeeded',
+        updatedAt: new Date(),
+        numSent: object[0].numSent,
+        numFailed: object[0].numFailed,
+        failedPerType: object[0].failedPerType,
+        sentPerType: object[0].sentPerType
+      };
+      if (Array.isArray(results)) {
+        results = flatten(results);
+        results.reduce((memo, result) => {
+          // Cannot handle that
+          if (!result || !result.device || !result.device.deviceType) {
+            return memo;
+          }
+          let deviceType = result.device.deviceType;
+          if (result.transmitted)
+          {
+            memo.numSent++;
+            memo.sentPerType = memo.sentPerType || {};
+            memo.sentPerType[deviceType] = memo.sentPerType[deviceType] || 0;
+            memo.sentPerType[deviceType]++;
+          } else {
+            memo.numFailed++;
+            memo.failedPerType = memo.failedPerType || {};
+            memo.failedPerType[deviceType] = memo.failedPerType[deviceType] || 0;
+            memo.failedPerType[deviceType]++;
+          }
           return memo;
-        }
-        let deviceType = result.device.deviceType;
-        if (result.transmitted)
-        {
-          memo.numSent++;
-          memo.sentPerType = memo.sentPerType || {};
-          memo.sentPerType[deviceType] = memo.sentPerType[deviceType] || 0;
-          memo.sentPerType[deviceType]++;
-        } else {
-          memo.numFailed++;
-          memo.failedPerType = memo.failedPerType || {};
-          memo.failedPerType[deviceType] = memo.failedPerType[deviceType] || 0;
-          memo.failedPerType[deviceType]++;
-        }
-        return memo;
-      }, update);
-    }
-    logger.verbose('sent push! %d success, %d failures', update.numSent, update.numFailed);
-    return handler.update({ objectId }, update);
+        }, update);
+      }
+      logger.verbose('sent push! %d success, %d failures', update.numSent, update.numFailed);
+      return handler.update({ objectId }, update);
+    });
   }
 
   let fail = function(err) {
