@@ -2,6 +2,7 @@ import { md5Hash, newObjectId } from './cryptoUtils';
 import { logger }               from './logger';
 
 const PUSH_STATUS_COLLECTION = '_PushStatus';
+const INSTALLATION_COLLECTION = '_Installation';
 const JOB_STATUS_COLLECTION = '_JobStatus';
 
 export function flatten(array) {
@@ -41,10 +42,18 @@ function statusHandler(className, database) {
     return lastPromise;
   }
 
+  function deleteEntry(where) {
+    lastPromise = lastPromise.then(() => {
+      return database.destroy(INSTALLATION_COLLECTION, {deviceToken: where});
+    });
+    return lastPromise;
+  }
+
   return Object.freeze({
     create,
     get,
-    update
+    update,
+    deleteEntry
   })
 }
 
@@ -173,6 +182,11 @@ export function pushStatusHandler(body, config) {
           if (!result || !result.device || !result.device.deviceType) {
             return memo;
           }
+
+          if(result.response && result.response.registration_id && result.device.deviceToken) {
+            handler.deleteEntry(result.device.deviceToken);
+          }
+
           let deviceType = result.device.deviceType;
           if (result.transmitted)
           {
